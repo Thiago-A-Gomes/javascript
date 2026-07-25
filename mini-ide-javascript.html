@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mini IDE de JavaScript</title>
+<style>
+  :root {
+    --bg: #1e1e2e;
+    --panel: #262637;
+    --accent: #7c9eff;
+    --accent-hover: #6b8cf5;
+    --text: #e4e4f0;
+    --muted: #8888a0;
+    --error: #ff6b6b;
+    --success: #4ade80;
+    --border: #3a3a4d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .btns { display: flex; gap: 8px; }
+  button {
+    background: var(--accent);
+    color: #10101a;
+    border: none;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--accent-hover); }
+  button.secondary {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  button.secondary:hover { color: var(--text); border-color: var(--muted); }
+  button.danger { background: transparent; color: var(--error); border: 1px solid var(--error); padding: 5px 10px; font-size: 12px; }
+  button.danger:hover { background: var(--error); color: #10101a; }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 20px 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-weight: 600;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .view { flex: 1; min-height: 0; display: none; flex-direction: column; }
+  .view.active { display: flex; }
+
+  main { flex: 1; display: flex; min-height: 0; }
+  .pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .pane + .pane { border-left: 1px solid var(--border); }
+  .pane-label {
+    font-size: 12px; color: var(--muted); padding: 8px 14px;
+    border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  textarea {
+    flex: 1; background: var(--panel); color: var(--text); border: none;
+    padding: 14px; font-family: "SF Mono", Consolas, Menlo, monospace;
+    font-size: 14px; line-height: 1.6; resize: none; outline: none; tab-size: 2;
+  }
+  #output {
+    flex: 1; background: var(--panel); padding: 14px;
+    font-family: "SF Mono", Consolas, Menlo, monospace; font-size: 14px;
+    line-height: 1.7; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .out-line { padding: 2px 0; }
+  .out-error { color: var(--error); }
+  .out-log { color: var(--text); }
+  .out-empty { color: var(--muted); font-style: italic; }
+
+  .save-row {
+    display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .save-row input {
+    flex: 1; background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; border-radius: 6px; font-size: 13px; outline: none;
+  }
+  .save-row input:focus { border-color: var(--accent); }
+
+  #portfolioView { padding: 20px; overflow-y: auto; }
+  .portfolio-empty { color: var(--muted); font-style: italic; padding: 20px 0; }
+  .project-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 12px;
+  }
+  .project-card-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+  }
+  .project-title { font-weight: 600; font-size: 15px; }
+  .project-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .project-actions { display: flex; gap: 8px; }
+  .project-code-preview {
+    font-family: "SF Mono", Consolas, Menlo, monospace; font-size: 12px; color: var(--muted);
+    background: var(--bg); border-radius: 6px; padding: 10px; max-height: 100px; overflow: hidden;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .count-badge {
+    background: var(--accent); color: #10101a; font-size: 11px; font-weight: 700;
+    padding: 2px 8px; border-radius: 999px; margin-left: 6px;
+  }
+  footer { padding: 8px 20px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Mini IDE de JavaScript</h1>
+    <div class="sub">Escreva, rode e salve seus projetos no portfólio</div>
+  </div>
+  <div class="btns" id="editorBtns">
+    <button class="secondary" onclick="limpar()">Limpar saída</button>
+    <button onclick="rodar()">▶ Rodar código</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="editor" onclick="mudarAba('editor')">Editor</div>
+  <div class="tab" data-tab="portfolio" onclick="mudarAba('portfolio')">Meu Portfólio <span class="count-badge" id="countBadge">0</span></div>
+</div>
+
+<div id="editorView" class="view active">
+  <main>
+    <div class="pane">
+      <div class="pane-label">Seu código</div>
+      <textarea id="codeInput" spellcheck="false">let precos = [10, 30, 222, 35, 122];
+
+let precosComDescontos = precos.filter(function(preco) {
+  return preco >= 100;
+});
+
+console.log(precosComDescontos);</textarea>
+    </div>
+    <div class="pane">
+      <div class="pane-label">Resultado</div>
+      <div id="output"><div class="out-line out-empty">Clique em "Rodar código" para ver o resultado aqui...</div></div>
+    </div>
+  </main>
+  <div class="save-row">
+    <input type="text" id="projectName" placeholder="Nome do projeto (ex: Carrinho de compras com desconto)">
+    <button onclick="salvarNoPortfolio()">💾 Salvar no portfólio</button>
+  </div>
+</div>
+
+<div id="portfolioView" class="view">
+  <div id="portfolioList"></div>
+</div>
+
+<footer>Dica: use Tab para indentar. Ctrl+Enter (ou Cmd+Enter) roda o código. Os projetos salvos ficam guardados mesmo se você fechar e abrir de novo.</footer>
+
+<script>
+const outputEl = document.getElementById('output');
+const codeEl = document.getElementById('codeInput');
+const nameEl = document.getElementById('projectName');
+
+function mudarAba(nome) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === nome));
+  document.getElementById('editorView').classList.toggle('active', nome === 'editor');
+  document.getElementById('portfolioView').classList.toggle('active', nome === 'portfolio');
+  if (nome === 'portfolio') carregarPortfolio();
+}
+
+function limpar() {
+  outputEl.innerHTML = '<div class="out-line out-empty">Clique em "Rodar código" para ver o resultado aqui...</div>';
+}
+
+function formatValue(v) {
+  if (typeof v === 'string') return v;
+  try { return JSON.stringify(v, null, 0).replace(/,/g, ', '); }
+  catch (e) { return String(v); }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function rodar() {
+  const code = codeEl.value;
+  outputEl.innerHTML = '';
+  const lines = [];
+  const fakeConsole = {
+    log: function(...args) {
+      lines.push({ type: 'log', text: args.map(formatValue).join(' ') });
+    }
+  };
+  try {
+    const fn = new Function('console', code);
+    fn(fakeConsole);
+  } catch (err) {
+    lines.push({ type: 'error', text: err.name + ': ' + err.message });
+  }
+  if (lines.length === 0) {
+    outputEl.innerHTML = '<div class="out-line out-empty">(o código rodou, mas não mostrou nada com console.log)</div>';
+    return;
+  }
+  outputEl.innerHTML = lines.map(function(l) {
+    const cls = l.type === 'error' ? 'out-error' : 'out-log';
+    const prefix = l.type === 'error' ? '⚠ ' : '';
+    return '<div class="out-line ' + cls + '">' + prefix + escapeHtml(l.text) + '</div>';
+  }).join('');
+}
+
+codeEl.addEventListener('keydown', function(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = this.selectionStart, end = this.selectionEnd;
+    this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 2;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    rodar();
+  }
+});
+
+// ---------- Portfólio (usa window.storage, salva por usuário) ----------
+
+async function salvarNoPortfolio() {
+  const nome = nameEl.value.trim();
+  if (!nome) {
+    alert('Dá um nome pro projeto antes de salvar!');
+    return;
+  }
+  const id = 'proj_' + Date.now();
+  const data = {
+    titulo: nome,
+    codigo: codeEl.value,
+    salvoEm: new Date().toLocaleString('pt-BR')
+  };
+  try {
+    const result = await window.storage.set('portfolio:' + id, JSON.stringify(data), false);
+    if (result) {
+      nameEl.value = '';
+      alert('Projeto "' + nome + '" salvo no portfólio! 🎉');
+      atualizarContador();
+    } else {
+      alert('Não consegui salvar agora, tenta de novo.');
+    }
+  } catch (err) {
+    alert('Erro ao salvar: ' + err.message);
+  }
+}
+
+async function atualizarContador() {
+  try {
+    const result = await window.storage.list('portfolio:', false);
+    const count = result && result.keys ? result.keys.length : 0;
+    document.getElementById('countBadge').textContent = count;
+  } catch (err) {
+    document.getElementById('countBadge').textContent = '0';
+  }
+}
+
+async function carregarPortfolio() {
+  const listEl = document.getElementById('portfolioList');
+  listEl.innerHTML = '<div class="portfolio-empty">Carregando...</div>';
+  try {
+    const result = await window.storage.list('portfolio:', false);
+    const keys = result && result.keys ? result.keys : [];
+    if (keys.length === 0) {
+      listEl.innerHTML = '<div class="portfolio-empty">Nenhum projeto salvo ainda. Termine um projeto no Editor e clique em "Salvar no portfólio"!</div>';
+      document.getElementById('countBadge').textContent = '0';
+      return;
+    }
+    const projetos = [];
+    for (const key of keys) {
+      try {
+        const item = await window.storage.get(key, false);
+        if (item && item.value) {
+          projetos.push({ key, data: JSON.parse(item.value) });
+        }
+      } catch (e) { /* ignora item corrompido */ }
+    }
+    projetos.sort((a, b) => (a.data.salvoEm < b.data.salvoEm ? 1 : -1));
+    document.getElementById('countBadge').textContent = projetos.length;
+
+    listEl.innerHTML = projetos.map(function(p) {
+      const preview = escapeHtml(p.data.codigo.slice(0, 200));
+      return '<div class="project-card">' +
+        '<div class="project-card-header">' +
+          '<div>' +
+            '<div class="project-title">' + escapeHtml(p.data.titulo) + '</div>' +
+            '<div class="project-date">Salvo em ' + escapeHtml(p.data.salvoEm) + '</div>' +
+          '</div>' +
+          '<div class="project-actions">' +
+            '<button class="secondary" onclick="abrirProjeto(\'' + p.key + '\')">Abrir no editor</button>' +
+            '<button class="danger" onclick="excluirProjeto(\'' + p.key + '\')">Excluir</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="project-code-preview">' + preview + (p.data.codigo.length > 200 ? '...' : '') + '</div>' +
+      '</div>';
+    }).join('');
+
+    window._portfolioCache = {};
+    projetos.forEach(p => window._portfolioCache[p.key] = p.data);
+  } catch (err) {
+    listEl.innerHTML = '<div class="portfolio-empty">Erro ao carregar o portfólio: ' + escapeHtml(err.message) + '</div>';
+  }
+}
+
+function abrirProjeto(key) {
+  const data = window._portfolioCache && window._portfolioCache[key];
+  if (!data) return;
+  codeEl.value = data.codigo;
+  nameEl.value = data.titulo;
+  mudarAba('editor');
+}
+
+async function excluirProjeto(key) {
+  if (!confirm('Tem certeza que quer excluir esse projeto do portfólio?')) return;
+  try {
+    await window.storage.delete(key, false);
+    carregarPortfolio();
+  } catch (err) {
+    alert('Erro ao excluir: ' + err.message);
+  }
+}
+
+atualizarContador();
+
+// ---------- Semear o portfólio com o primeiro projeto já concluído ----------
+async function semearPortfolioInicial() {
+  try {
+    const check = await window.storage.get('portfolio:_seeded_v1', false).catch(() => null);
+    if (check) return; // já foi semeado antes, não duplica
+  } catch (e) { /* chave não existe ainda, segue normalmente */ }
+
+  const codigoCarrinho = `let precos = [10, 30, 222, 35, 122];
+
+let precosComDescontos = precos.filter(function(preco) {
+  return preco >= 100;
+});
+
+let precosFinais = precosComDescontos.map(function(preco) {
+  return preco - 10;
+});
+
+if (precosComDescontos.length === 0) {
+  console.log("Nenhum produto com desconto");
+} else {
+  console.log(precosFinais);
+}`;
+
+  try {
+    await window.storage.set('portfolio:proj_seed_carrinho', JSON.stringify({
+      titulo: 'Carrinho de compras com desconto',
+      codigo: codigoCarrinho,
+      salvoEm: new Date().toLocaleString('pt-BR')
+    }), false);
+    await window.storage.set('portfolio:_seeded_v1', 'true', false);
+    atualizarContador();
+  } catch (err) {
+    console.error('Erro ao semear portfólio:', err);
+  }
+}
+semearPortfolioInicial();
+</script>
+
+</body>
+</html>
