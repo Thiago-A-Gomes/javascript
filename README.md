@@ -5,8 +5,9 @@ praticando lógica de programação e matemática em paralelo.
 
 ## Estrutura
 
-- `mini-ide-javascript.html` — um pequeno editor de código que criei para testar
-  JavaScript direto no navegador, com uma aba de portfólio para salvar projetos.
+- `ferramentas/` — ferramentas que criei para me ajudar a estudar.
+  - `mini-ide-javascript.html` — um pequeno editor de código para testar JavaScript
+    direto no navegador, com uma aba de portfólio para salvar projetos.
 - `projetos/` — os projetos concluídos, um arquivo `.js` por projeto.
 
 ## Projetos
